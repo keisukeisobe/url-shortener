@@ -11,8 +11,8 @@ async function main() {
   const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
   try {
     await client.connect();
-    await listDatabases(client);
-    await createURLEntry(client, {url: 'https://www.freecodecamp.org'});
+    // await createCounter(client);
+    await createURLEntry(client, {url: 'https://www.facebook.com'});
   } catch (error) {
     console.error(error);
   } finally {
@@ -20,15 +20,28 @@ async function main() {
   }
 }
 
-async function listDatabases(client) {
-  databasesList = await client.db().admin().listDatabases();
-  console.log("Databases");
-  databasesList.databases.forEach(db => console.log(` - ${db.name}`));
+async function createURLEntry(client, newURL){
+  await client.db("shorturls").collection("urls").insertOne({
+    sequence: await getNextSequenceValue(client),
+    url: newURL.url
+  });
 }
 
-async function createURLEntry(client, newURL){
-  const result = await client.db("shorturls").collection("urls").insertOne(newURL);
-  console.log(`New URL added to database with the following ID: ${result.insertedId}`);
+async function createCounter(client){
+  await client.db("shorturls").collection("counters").insertOne({
+    _id: "urlid",
+    sequence_value: 0
+  });
+}
+
+async function getNextSequenceValue(client){
+  const sequenceDocument = await client.db("shorturls").collection("counters").findOneAndUpdate(
+    {_id: "urlid"},
+    {$inc:{sequence_value: 1}},
+    true
+  );
+  console.log(`${sequenceDocument.value.sequence_value}`);
+  return sequenceDocument.value.sequence_value;
 }
 
 
