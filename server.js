@@ -1,18 +1,19 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const dns = require('dns');
 const app = express();
 const {MongoClient} = require('mongodb');
 const bodyParser = require('body-parser');
 const requestIp = require('request-ip');
 
+const uri = process.env.DB_URI;
+const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+
 async function main() {
-  const uri = process.env.DB_URI;
-  const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
   try {
     await client.connect();
-    // await createCounter(client);
-    await createURLEntry(client, {url: 'https://www.facebook.com'});
+    await createURLEntry({url: 'https://www.freecodecamp.org/learn/apis-and-microservices/#basic-node-and-express'});
   } catch (error) {
     console.error(error);
   } finally {
@@ -20,30 +21,21 @@ async function main() {
   }
 }
 
-async function createURLEntry(client, newURL){
+async function createURLEntry(newURL){
   await client.db("shorturls").collection("urls").insertOne({
-    sequence: await getNextSequenceValue(client),
+    sequence: await getNextSequenceValue(),
     url: newURL.url
   });
 }
 
-async function createCounter(client){
-  await client.db("shorturls").collection("counters").insertOne({
-    _id: "urlid",
-    sequence_value: 0
-  });
-}
-
-async function getNextSequenceValue(client){
+async function getNextSequenceValue(){
   const sequenceDocument = await client.db("shorturls").collection("counters").findOneAndUpdate(
     {_id: "urlid"},
     {$inc:{sequence_value: 1}},
     true
   );
-  console.log(`${sequenceDocument.value.sequence_value}`);
   return sequenceDocument.value.sequence_value;
 }
-
 
 main().catch(console.error);
 
@@ -51,6 +43,10 @@ main().catch(console.error);
 const port = process.env.PORT || 3000;
 
 app.use(cors());
+
+app.use(bodyParser.urlencoded({extended: true}));
+
+app.use(bodyParser.json());
 
 app.use(requestIp.mw());
 
@@ -93,6 +89,14 @@ app.get('/api/whoami', (req, res, next) => {
     language: [...languages].toString(),
     software
   });
+});
+
+app.post('/api/shorturl/new', async function(req, res) {
+  console.log(req.body.url);
+  await createURLEntry({url: req.body.url});
+});
+
+app.get('/api/shorturl/:url', function(req, res) {
 });
 
 app.listen(port, function() {
